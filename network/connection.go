@@ -7,7 +7,6 @@ import (
 type Connection struct {
 	conn     net.Conn
 	read_buf []byte
-	ch       chan bool
 	id       int
 }
 
@@ -25,14 +24,13 @@ var counter func() int = static_counter()
 func Create(byte_size int) *Connection {
 	connection := new(Connection)
 	connection.read_buf = make([]byte, byte_size)
-	connection.ch = make(chan bool, 1)
 	connection.id = counter()
 
 	return connection
 }
 
 func (con *Connection) Connect(address string) {
-	conn, err := net.Dial("tcp", ":8080")
+	conn, err := net.Dial("tcp", address)
 	con.conn = conn
 
 	if err != nil {
@@ -41,17 +39,30 @@ func (con *Connection) Connect(address string) {
 	}
 }
 
-func (con *Connection) Read() []byte {
+func (con *Connection) Read() ([]byte, error) {
 	read_bytes, err := con.conn.Read(con.read_buf)
-	if err != nil || read_bytes == 0 {
-		return nil
+	if err != nil {
+		return nil, err
 	}
 
-	var new []byte
+	new := make([]byte, read_bytes)
 	copy(new, con.read_buf)
-	return new
+	return new, nil
 }
 
-func (con *Connection) Write(msg []byte) {
-	con.conn.Write(msg)
+func (con *Connection) Write(msg []byte) error {
+	_, err := con.conn.Write(msg)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (con *Connection) Close() {
+	if con.conn != nil {
+		con.conn.Close()
+		con.conn = nil
+	}
 }
