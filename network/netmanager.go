@@ -11,6 +11,7 @@ type NetManager struct {
 	mu          *sync.Mutex
 	ch          chan bool
 	wg          *sync.WaitGroup
+	filter      map[string]bool
 }
 
 func CreateManager() *NetManager {
@@ -19,6 +20,7 @@ func CreateManager() *NetManager {
 	manager.connections = make(map[int]*Connection)
 	manager.ch = make(chan bool)
 	manager.wg = &sync.WaitGroup{}
+	manager.filter = make(map[string]bool)
 
 	return manager
 }
@@ -53,6 +55,12 @@ func (m *NetManager) Listen(port int) {
 			conn, err := listener.Accept()
 			if err != nil {
 				break
+			}
+
+			ip := conn.RemoteAddr().String()
+			if m.filter[ip] != nil {
+				conn.Close()
+				continue
 			}
 
 			connection := Create(4096)
