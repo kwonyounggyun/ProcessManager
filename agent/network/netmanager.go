@@ -1,6 +1,7 @@
 package network
 
 import (
+	mypack "ProcessManager/agent/network/packet"
 	"fmt"
 	"net"
 	"sync"
@@ -57,11 +58,11 @@ func (m *NetManager) Listen(port int) {
 				break
 			}
 
-			ip := conn.RemoteAddr().String()
-			if m.filter[ip] != nil {
-				conn.Close()
-				continue
-			}
+			// ip := conn.RemoteAddr().String()
+			// if m.filter[ip] {
+			// 	conn.Close()
+			// 	continue
+			// }
 
 			connection := Create(4096)
 			connection.conn = conn
@@ -70,6 +71,13 @@ func (m *NetManager) Listen(port int) {
 			m.connections[connection.id] = connection
 			m.mu.Unlock()
 
+			var data mypack.ReqeustExecute
+			data.Path = "calc"
+			data.Args = "nono"
+
+			packet := mypack.MakePacket(mypack.ReqeustExecuteID, &data)
+
+			connection.Write(packet)
 			m.wg.Add(1)
 			go m.clientReadLoop(connection)
 		}

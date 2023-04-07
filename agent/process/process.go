@@ -1,4 +1,4 @@
-package agent
+package process
 
 import (
 	"bufio"
@@ -15,11 +15,14 @@ type Process struct {
 	output io.Reader
 	ch     chan os.Signal
 	done   chan bool
+	wg     sync.WaitGroup
+	PID    int
 }
 
 func CreateProcess(process string, arg ...string) *Process {
 	p := new(Process)
 	p.pro = exec.Command(process, arg...)
+	p.PID = p.pro.Process.Pid
 
 	var err error
 	p.input, err = p.pro.StdinPipe()
@@ -33,16 +36,17 @@ func CreateProcess(process string, arg ...string) *Process {
 
 	p.ch = make(chan os.Signal, 1)
 	p.done = make(chan bool, 1)
+	p.wg = sync.WaitGroup{}
 
 	return p
 }
 
-func (p *Process) Run(wg *sync.WaitGroup) {
-	wg.Add(2)
+func (p *Process) Run() {
+	p.wg.Add(2)
 
 	p.pro.Start()
 	go func() {
-		defer wg.Done()
+		defer p.wg.Done()
 
 		read_buf := bufio.NewReader(p.output)
 		for {
@@ -57,7 +61,7 @@ func (p *Process) Run(wg *sync.WaitGroup) {
 	}()
 
 	go func() {
-		defer wg.Done()
+		defer p.wg.Done()
 
 		select {
 		case sig := <-p.ch:
@@ -70,10 +74,13 @@ func (p *Process) Run(wg *sync.WaitGroup) {
 
 func (p *Process) Stop() {
 	p.ch <- os.Interrupt
+
+	p.wg.Wait()
 }
 
 func (p *Process) ForceStop() {
 	p.ch <- os.Kill
+	p.wg.Wait()
 }
 
 func (p *Process) Release() {
