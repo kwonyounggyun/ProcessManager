@@ -7,24 +7,24 @@ import (
 type Connection struct {
 	conn     net.Conn
 	read_buf []byte
-	id       int
+	name     string
 }
 
-func static_counter() (f func() int) {
-	var i int = 0
-	f = func() int {
-		i++
-		return i
-	}
-	return
-}
+// func static_counter() (f func() int) {
+// 	var i int = 0
+// 	f = func() int {
+// 		i++
+// 		return i
+// 	}
+// 	return
+// }
 
-var counter func() int = static_counter()
+// var counter func() int = static_counter()
 
-func Create(byte_size int) *Connection {
+func Create(name string) *Connection {
 	connection := new(Connection)
-	connection.read_buf = make([]byte, byte_size)
-	connection.id = counter()
+	connection.read_buf = make([]byte, 4096)
+	connection.name = name
 
 	return connection
 }

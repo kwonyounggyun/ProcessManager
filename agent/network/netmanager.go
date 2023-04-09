@@ -1,27 +1,26 @@
 package network
 
 import (
-	mypack "ProcessManager/agent/network/packet"
 	"fmt"
 	"net"
 	"sync"
 )
 
 type NetManager struct {
-	connections map[int]*Connection
+	connections map[string]*Connection
 	mu          *sync.Mutex
 	ch          chan bool
 	wg          *sync.WaitGroup
-	filter      map[string]bool
+	filter      map[string]string
 }
 
 func CreateManager() *NetManager {
 	manager := new(NetManager)
 	manager.mu = &sync.Mutex{}
-	manager.connections = make(map[int]*Connection)
+	manager.connections = make(map[string]*Connection)
 	manager.ch = make(chan bool)
 	manager.wg = &sync.WaitGroup{}
-	manager.filter = make(map[string]bool)
+	manager.filter = make(map[string]string)
 
 	return manager
 }
@@ -47,7 +46,7 @@ func (m *NetManager) Listen(port int) {
 			m.mu.Lock()
 			for _, con := range m.connections {
 				con.Close()
-				delete(m.connections, con.id)
+				delete(m.connections, con.name)
 			}
 			m.mu.Unlock()
 		}()
@@ -58,26 +57,28 @@ func (m *NetManager) Listen(port int) {
 				break
 			}
 
-			// ip := conn.RemoteAddr().String()
-			// if m.filter[ip] {
-			// 	conn.Close()
-			// 	continue
-			// }
+			remote_addr := conn.RemoteAddr().String()
 
-			connection := Create(4096)
+			name := m.filter[remote_addr]
+			if len(name) == 0 {
+				conn.Close()
+				continue
+			}
+
+			connection := Create(name)
 			connection.conn = conn
 
 			m.mu.Lock()
-			m.connections[connection.id] = connection
+			m.connections[connection.name] = connection
 			m.mu.Unlock()
 
-			var data mypack.ReqeustExecute
-			data.Path = "calc"
-			data.Args = "nono"
+			// var data mypack.ReqeustExecute
+			// data.Path = "calc"
+			// data.Args = "nono"
 
-			packet := mypack.MakePacket(mypack.ReqeustExecuteID, &data)
+			// packet := mypack.MakePacket(mypack.ReqeustExecuteID, &data)
 
-			connection.Write(packet)
+			// connection.Write(packet)
 			m.wg.Add(1)
 			go m.clientReadLoop(connection)
 		}
@@ -93,7 +94,7 @@ func (m *NetManager) clientReadLoop(con *Connection) {
 			m.mu.Lock()
 
 			con.Close()
-			delete(m.connections, con.id)
+			delete(m.connections, con.name)
 			m.mu.Unlock()
 
 			m.wg.Done()
@@ -107,4 +108,13 @@ func (m *NetManager) clientReadLoop(con *Connection) {
 func (m *NetManager) Stop() {
 	m.ch <- false
 	m.wg.Wait()
+}
+
+func (m *NetManager) SendPacket(name string, data []byte) {
+	con := m.connections[name]
+	if con == nil {
+		return
+	}
+
+	con.Write(data)
 }

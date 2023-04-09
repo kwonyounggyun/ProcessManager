@@ -1,10 +1,11 @@
 package main
 
 import (
+	"ProcessManager/agent/network"
+	"ProcessManager/agent/network/packet"
 	"ProcessManager/api"
-	"ProcessManager/network"
 	"fmt"
-	"sync"
+	"net/http"
 	"time"
 
 	"github.com/gin-contrib/sessions"
@@ -60,13 +61,22 @@ func main() {
 				"message": str,
 			})
 		})
-		agent.POST("/execute", func(c *gin.Context) {
-			session := sessions.Default(c)
 
-			str := fmt.Sprintf("%d", session.Get("id"))
-			c.JSON(200, gin.H{
-				"message": str,
-			})
+		agent.POST("/executeprocess", func(c *gin.Context) {
+			var data api.ExecuteProcessData
+			err := c.BindJSON(&data)
+
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid parameter."})
+				return
+			}
+
+			pack := packet.ReqeustExecute{Path: "", Args: ""}
+			pack2 := packet.MakePacket(packet.ReqeustExecuteID, &pack)
+
+			manager.SendPacket(data.Node, pack2)
+
+			c.JSON(http.StatusOK, gin.H{"message": "Execute"})
 		})
 	}
 
@@ -80,24 +90,24 @@ func main() {
 	manager.Stop()
 }
 
-func Adding(wg *sync.WaitGroup, prin string) *chan bool {
-	wg.Add(1)
+// func Adding(wg *sync.WaitGroup, prin string) *chan bool {
+// 	wg.Add(1)
 
-	ch := make(chan bool)
-	go func(ch chan bool) {
-		run := true
+// 	ch := make(chan bool)
+// 	go func(ch chan bool) {
+// 		run := true
 
-		defer wg.Done()
+// 		defer wg.Done()
 
-		for run {
-			select {
-			case <-time.After(time.Second * 1):
-				fmt.Println(prin)
-			case stop := <-ch:
-				run = stop
-			}
-		}
-	}(ch)
+// 		for run {
+// 			select {
+// 			case <-time.After(time.Second * 1):
+// 				fmt.Println(prin)
+// 			case stop := <-ch:
+// 				run = stop
+// 			}
+// 		}
+// 	}(ch)
 
-	return &ch
-}
+// 	return &ch
+// }

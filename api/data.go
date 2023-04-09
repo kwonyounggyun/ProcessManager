@@ -11,7 +11,7 @@ type SignInData struct {
 	Email string `json:"email"`
 }
 
-type ExecuteData struct {
+type ExecuteProcessData struct {
 	Node      string `json:"node"`
 	ExecuteID string `json:"executeid"`
 }

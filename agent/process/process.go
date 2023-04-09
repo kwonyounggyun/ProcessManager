@@ -74,13 +74,10 @@ func (p *Process) Run() {
 
 func (p *Process) Stop() {
 	p.ch <- os.Interrupt
-
-	p.wg.Wait()
 }
 
 func (p *Process) ForceStop() {
 	p.ch <- os.Kill
-	p.wg.Wait()
 }
 
 func (p *Process) Release() {
