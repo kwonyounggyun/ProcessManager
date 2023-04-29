@@ -1,12 +1,14 @@
 package main
 
 import (
-	"ProcessManager/ProClient/handler"
+	"ProcessManager/Client/handler"
 	"ProcessManager/agent/network"
 	"ProcessManager/agent/network/packet"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -48,4 +50,25 @@ func main() {
 		}
 	}()
 	wg.Wait()
+	// Test()
+
+	// ch := make(chan bool)
+
+	// wg := &sync.WaitGroup{}
+
+	// wg.Add(1)
+	// go func() {
+	// 	<-ch
+	// 	wg.Done()
+	// }()
+	// wg.Wait()
+}
+
+func Test() {
+	go func() {
+		for {
+			fmt.Print("test")
+			time.Sleep(time.Second * 3)
+		}
+	}()
 }

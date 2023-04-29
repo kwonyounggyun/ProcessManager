@@ -15,3 +15,8 @@ type ExecuteProcessData struct {
 	Node      string `json:"node"`
 	ExecuteID string `json:"executeid"`
 }
+
+type AddNode struct {
+	IP   string `json:"ip"`
+	Node string `json:"node"`
+}

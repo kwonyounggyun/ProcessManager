@@ -4,12 +4,14 @@ import (
 	"ProcessManager/agent/network"
 	"ProcessManager/agent/network/packet"
 	"ProcessManager/api"
+	"ProcessManager/db"
+	"ProcessManager/db/dbtask"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,14 +40,35 @@ func main() {
 
 	manager := network.CreateManager()
 	manager.Listen(9000)
+
+	con_str := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", "BA", "hERpUzg_RL4_Ja-*", "127.0.0.1", 3306, "BAUser")
+	dbmanager := db.CreateManager("mysql", con_str)
+	dbmanager.Run(5)
+
 	time.Sleep(time.Second * 5)
-	store := cookie.NewStore([]byte("secret"))
+	//store := cookie.NewStore([]byte("secret"))
+	store, _ := redis.NewStore(1000, "tcp", "localhost:6379", "", []byte("secret"))
 
 	r := gin.Default()
 	r.Use(sessions.Sessions("mysession", store))
 	i := 1
 	agent := r.Group("/agent")
 	{
+		agent.POST("/addnode", func(c *gin.Context) {
+			req := api.AddNode{}
+			c.BindJSON(&req)
+
+			task := dbtask.AddNodeTask{IP: req.IP, NodeName: req.Node}
+			dbmanager.ExecuteTask(&task)
+
+			if task.ID != -1 {
+				c.JSON(http.StatusOK, gin.H{"ip": task.IP, "name": task.NodeName, "id": task.ID})
+				return
+			}
+			c.JSON(http.StatusExpectationFailed, gin.H{"ip": req.IP, "name": req.Node})
+
+		})
+
 		agent.GET("/status", func(c *gin.Context) {
 			session := sessions.Default(c)
 

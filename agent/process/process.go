@@ -78,6 +78,7 @@ func (p *Process) Stop() {
 
 func (p *Process) ForceStop() {
 	p.ch <- os.Kill
+	p.wg.Wait()
 }
 
 func (p *Process) Release() {
