@@ -8,19 +8,23 @@ import (
 
 type NetManager struct {
 	connections map[string]*Connection
-	mu          *sync.Mutex
-	ch          chan bool
 	wg          *sync.WaitGroup
 	filter      map[string]string
+
+	exit_event   chan bool
+	accept_event chan *Connection
+	close_event  chan *Connection
 }
 
 func CreateManager() *NetManager {
 	manager := new(NetManager)
-	manager.mu = &sync.Mutex{}
 	manager.connections = make(map[string]*Connection)
-	manager.ch = make(chan bool)
 	manager.wg = &sync.WaitGroup{}
 	manager.filter = make(map[string]string)
+
+	manager.exit_event = make(chan bool)
+	manager.accept_event = make(chan *Connection)
+	manager.close_event = make(chan *Connection)
 
 	return manager
 }
@@ -34,29 +38,49 @@ func (m *NetManager) Listen(port int) {
 	}
 
 	m.wg.Add(2)
+	//event process loop
 	go func() {
-		<-m.ch
-		listener.Close()
+		defer m.wg.Done()
+		for {
+			select {
+			case accept_con := <-m.accept_event:
+				{
+					m.connections[accept_con.name] = accept_con
 
-		m.wg.Done()
+					//create read loop
+					m.wg.Add(1)
+					go m.clientReadLoop(accept_con)
+					break
+				}
+			case close_con := <-m.close_event:
+				{
+					find := m.connections[close_con.name]
+					if find != nil {
+						close_con.conn.Close()
+						delete(m.connections, close_con.name)
+					}
+					break
+				}
+			case <-m.exit_event:
+				{
+					listener.Close()
+					for _, con := range m.connections {
+						con.Close()
+					}
+					return
+				}
+			}
+		}
 	}()
 
+	//listen process loop
 	go func() {
-		defer func() {
-			m.mu.Lock()
-			for _, con := range m.connections {
-				con.Close()
-				delete(m.connections, con.name)
-			}
-			m.mu.Unlock()
-		}()
-
+		defer m.wg.Done()
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
 				break
 			}
-
 			remote_addr := conn.RemoteAddr().String()
 
 			name := m.filter[remote_addr]
@@ -68,36 +92,17 @@ func (m *NetManager) Listen(port int) {
 			connection := Create(name)
 			connection.conn = conn
 
-			m.mu.Lock()
-			m.connections[connection.name] = connection
-			m.mu.Unlock()
-
-			// var data mypack.ReqeustExecute
-			// data.Path = "calc"
-			// data.Args = "nono"
-
-			// packet := mypack.MakePacket(mypack.ReqeustExecuteID, &data)
-
-			// connection.Write(packet)
-			m.wg.Add(1)
-			go m.clientReadLoop(connection)
+			m.accept_event <- connection
 		}
-
-		m.wg.Done()
 	}()
 }
 
 func (m *NetManager) clientReadLoop(con *Connection) {
+	defer m.wg.Done()
 	for {
 		read, err := con.Read()
 		if err != nil {
-			m.mu.Lock()
-
-			con.Close()
-			delete(m.connections, con.name)
-			m.mu.Unlock()
-
-			m.wg.Done()
+			m.close_event <- con
 			break
 		}
 
@@ -106,7 +111,7 @@ func (m *NetManager) clientReadLoop(con *Connection) {
 }
 
 func (m *NetManager) Stop() {
-	m.ch <- false
+	m.exit_event <- false
 	m.wg.Wait()
 }
 
