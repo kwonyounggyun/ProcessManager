@@ -5,6 +5,8 @@ import (
 	"container/list"
 	"database/sql"
 	"sync"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type DBManager struct {
@@ -13,12 +15,13 @@ type DBManager struct {
 	lock  *sync.Mutex
 }
 
-func CreateManager(driver_name, connect_str string) *DBManager {
+func CreateManager(driver_name, connect_str string) (*DBManager, error) {
 	manager := &DBManager{}
-	manager.db, _ = sql.Open(driver_name, connect_str)
+	db, err := sql.Open(driver_name, connect_str)
+	manager.db = db
 	manager.tasks = list.New()
 	manager.lock = &sync.Mutex{}
-	return manager
+	return manager, err
 }
 
 func (m *DBManager) Run(count int) {
@@ -33,7 +36,7 @@ func (m *DBManager) Run(count int) {
 					task := m.popTask()
 					if task != nil {
 						//connection close
-						if task.Execute(m.db) != sql.ErrConnDone {
+						if task.Execute(m.db) == sql.ErrConnDone {
 							return
 						}
 						task.Complete()
@@ -59,9 +62,4 @@ func (m *DBManager) PushTask(task dbtask.IDBTask) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.tasks.PushBack(task)
-}
-
-func (m *DBManager) ExecuteTask(task dbtask.IDBTask) {
-	task.Execute(m.db)
-	task.Complete()
 }

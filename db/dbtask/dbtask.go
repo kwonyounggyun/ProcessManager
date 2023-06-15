@@ -1,6 +1,8 @@
 package dbtask
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 type IDBTask interface {
 	Execute(db *sql.DB) error

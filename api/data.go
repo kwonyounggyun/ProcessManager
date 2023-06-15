@@ -16,7 +16,11 @@ type ExecuteProcessData struct {
 	ExecuteID string `json:"executeid"`
 }
 
-type AddNode struct {
+type StopProcessData struct {
+	PID uint64 `json:"pid"`
+}
+
+type AddNodeData struct {
 	IP   string `json:"ip"`
 	Node string `json:"node"`
 }

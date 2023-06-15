@@ -68,3 +68,6 @@ func (p *ReqeustForceStopProcess) Unserialize(data []byte) {
 
 	binary.Read(buf, binary.BigEndian, &p.PID)
 }
+
+type InfoStatus struct {
+}
